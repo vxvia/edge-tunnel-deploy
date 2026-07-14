@@ -130,7 +130,7 @@ function jsonResp(obj, status = 200) {
   });
 }
 
-// ── HTML 页面（已同步修改 deploy() 中的 metadata）────────────────────────────
+// ── HTML 页面（前端 deploy() 已添加自动启用 workers.dev 步骤）────────────────
 function buildHTML(tutorialUrl) {
   const hasTutorial = tutorialUrl && tutorialUrl !== "A";
   const tutorialBtn = hasTutorial
@@ -341,7 +341,7 @@ function buildHTML(tutorialUrl) {
       <h1>EdgeTunnel 一键部署</h1>
       ${tutorialBtn}
     </div>
-    <p>填写 Cloudflare 信息后点击「生成」，自动完成 Worker 部署、密钥写入与 KV 绑定。</p>
+    <p>填写 Cloudflare 信息后点击「生成」，自动完成 Worker 部署、密钥写入与 KV 绑定，并自动启用 workers.dev 公开访问。</p>
   </div>
 
   <div class="card">
@@ -523,7 +523,7 @@ async function deploy() {
     var kvId = kv.id;
     log('KV 创建成功 → ID: ' + kvId, 'ok');
 
-    log('正在部署 Worker "' + wname + '"（并启用 workers.dev 路由）…', 'info');
+    log('正在部署 Worker "' + wname + '"…', 'info');
     var metadata = {
       main_module: 'worker.js',
       bindings: [
@@ -532,7 +532,7 @@ async function deploy() {
         { type: 'secret_text',  name: 'KEY',   text: key  }
       ],
       compatibility_date: '2024-01-01',
-      workers_dev: true  // ← 确保 Worker 的 workers.dev 路由默认开启
+      workers_dev: true
     };
     var form = new FormData();
     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
@@ -549,8 +549,20 @@ async function deploy() {
       formBytes,
       formCtype
     );
-    log('Worker 部署成功，workers.dev 路由已启用', 'ok');
+    log('Worker 部署成功', 'ok');
 
+    // 【新增】显式启用 workers.dev 路由并设为公开
+    log('正在启用 workers.dev 公开访问…', 'info');
+    await cfFetch(
+      token,
+      '/accounts/' + acct + '/workers/scripts/' + wname + '/subdomain',
+      'POST',
+      JSON.stringify({ enabled: true }),
+      'application/json'
+    );
+    log('workers.dev 已启用，任何人可通过 URL 访问', 'ok');
+
+    // 查询账户子域
     log('正在查询账户子域…', 'info');
     var sub = '';
     try {
@@ -572,7 +584,7 @@ async function deploy() {
       { label: 'ADMIN 密码',  value: admin     },
       { label: 'KEY 密码',    value: key       },
       { label: 'ECH',         value: '已默认启用（源码级修改）' },
-      { label: '⚠️ 最后一步', value: 'https://dash.cloudflare.com/?to=/:account/workers/services/view/' + wname + '/production/settings' },
+      { label: '公开访问',    value: '已启用，任意 URL 均可访问' }
     ]);
 
   } catch(e) {
