@@ -29,7 +29,6 @@ export async function onRequest(context) {
     let text = await res.text();
     let echPatched = false;
 
-    // 多项正则替换确保 ECH = true
     if (/\bECH\s*:\s*false/.test(text)) {
       text = text.replace(/(\bECH\s*:\s*)false/g, "$1true");
       echPatched = true;
@@ -131,7 +130,7 @@ function jsonResp(obj, status = 200) {
   });
 }
 
-// ── HTML 页面（与原 Worker 完全相同）─────────────────────────────────────────
+// ── HTML 页面（已同步修改 deploy() 中的 metadata）────────────────────────────
 function buildHTML(tutorialUrl) {
   const hasTutorial = tutorialUrl && tutorialUrl !== "A";
   const tutorialBtn = hasTutorial
@@ -524,7 +523,7 @@ async function deploy() {
     var kvId = kv.id;
     log('KV 创建成功 → ID: ' + kvId, 'ok');
 
-    log('正在部署 Worker "' + wname + '"…', 'info');
+    log('正在部署 Worker "' + wname + '"（并启用 workers.dev 路由）…', 'info');
     var metadata = {
       main_module: 'worker.js',
       bindings: [
@@ -532,7 +531,8 @@ async function deploy() {
         { type: 'secret_text',  name: 'ADMIN', text: admin },
         { type: 'secret_text',  name: 'KEY',   text: key  }
       ],
-      compatibility_date: '2024-01-01'
+      compatibility_date: '2024-01-01',
+      workers_dev: true  // ← 确保 Worker 的 workers.dev 路由默认开启
     };
     var form = new FormData();
     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
@@ -549,7 +549,7 @@ async function deploy() {
       formBytes,
       formCtype
     );
-    log('Worker 部署成功', 'ok');
+    log('Worker 部署成功，workers.dev 路由已启用', 'ok');
 
     log('正在查询账户子域…', 'info');
     var sub = '';
@@ -560,7 +560,7 @@ async function deploy() {
 
     var workerUrl = sub
       ? 'https://' + wname + '.' + sub + '.workers.dev'
-      : 'https://' + wname + '.<subdomain>.workers.dev';
+      : 'https://' + wname + '.<subdomain>.workers.dev（子域未查找到，请到控制台确认）';
     var subUrl = workerUrl + '/' + key;
 
     log('全部完成 🎉', 'ok');
